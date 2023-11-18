@@ -19,7 +19,6 @@ type feedParameters struct {
 func (apiCfg *apiConfig) handlerCreateFeed(w http.ResponseWriter, r *http.Request, user database.User) {
 	decoder := json.NewDecoder(r.Body)
 
-	
 	params := feedParameters{}
 	err := decoder.Decode(&params)
 	if err != nil {

@@ -2,10 +2,10 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/elue-dev/rss-aggregator/internal/database"
 	"github.com/go-chi/chi"
@@ -34,6 +34,10 @@ func respondWithError(w http.ResponseWriter, code int, msg string) {
 }
 
 func main() {
+	_, err := urlToFeed("https://blog.boot.dev/index.xml")
+	if err != nil {
+		log.Fatal(err)
+	}
 	
 	godotenv.Load(".env")
 
@@ -52,9 +56,12 @@ func main() {
 		log.Fatal("Failed to connect to database", err)
 	}
 
+	db := database.New(conn)
 	apiCfg := apiConfig{
-		DB:  database.New(conn),
+		DB:  db,
 	}
+
+	go startScrapping(db, 10, time.Minute)
 
 	router := chi.NewRouter()
 
@@ -73,8 +80,15 @@ func main() {
 	  v1Router.Get("/err", hanndlerErr)
 	  v1Router.Post("/users", apiCfg.handlerCreateUser)
 	  v1Router.Get("/users", apiCfg.middlewareAuth(apiCfg.handlerGetUserByAPIKey))
+
+	  v1Router.Get("/posts", apiCfg.middlewareAuth(apiCfg.handlerGetPostsForUser))
+
 	  v1Router.Post("/feeds", apiCfg.middlewareAuth(apiCfg.handlerCreateFeed))
 	  v1Router.Get("/feeds", apiCfg.handlerGetFeeds)
+	  v1Router.Post("/feeds_follows", apiCfg.middlewareAuth(apiCfg.handlerCreateFeedFollow))
+	  v1Router.Get("/feeds_follows", apiCfg.middlewareAuth(apiCfg.handlerGetFeedFollows))
+	  v1Router.Delete("/feeds_follows/{feedFollowID}", apiCfg.middlewareAuth(apiCfg.handlerDeleteFeedFollow))
+	  
 
 	  router.Mount("/v1", v1Router)
 
@@ -88,6 +102,4 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	fmt.Println(port)
 }
